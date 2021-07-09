@@ -1,4 +1,5 @@
 #include <files.hpp>
+#include <math.h>
 #include <cam.hpp>
 #include <figures.h>
 #include <shader.hpp>
@@ -10,6 +11,7 @@ const u32 SCR_HEIGHT = 720;
 const f32 ASPECT		 = (f32)SCR_WIDTH / (f32)SCR_HEIGHT;
 
 Cam* cam;
+i32 dx, dz;
 
 f32  deltaTime	= 0.0f;
 f32  lastFrame	= 0.0f;
@@ -31,6 +33,31 @@ void processInput(GLFWwindow* window) {
 	if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
 		cam->processKeyboard(RIGHT, deltaTime);
 	}
+	//kbd
+	if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS) {
+		dx = -1;
+	}
+	if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS) {
+		dx = 1;
+	}
+	if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS) {
+		dz = 1;
+	}
+	if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS) {
+		dz = -1;
+	}
+	//if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_RELEASE) {
+	//	dx = -0;
+	//}
+	//if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_RELEASE) {
+	//	dx = 0;
+	//}
+	//if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_RELEASE) {
+	//	dz = 0;
+	//}
+	//if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_RELEASE) {
+	//	dz = -0;
+	//}
 }
 void key_callback(GLFWwindow*, int key, int, int act, int) {
 	wireframe ^= key == GLFW_KEY_E && act == GLFW_PRESS;
@@ -61,6 +88,9 @@ struct Ball {
 	glm::vec3 pos;
 	glm::mat4 model;
 
+	f32 dx = 0; 
+	f32 dz = 0; 
+
 	Ball(const std::string& texture, Shader*& shader){
 		tex = shader->loadTexture(texture);
 		radius = 0.2f;
@@ -71,7 +101,15 @@ struct Ball {
 	}
 	~Ball() {
 	}
+
+	void update_pos() {
+
+		pos.x += dx ;
+		pos.z += dz ;
+
+	}
 	void Draw(Shader* shader, Model* ball) {
+		pos.y = 0.5f + radius*2;
 		model = glm::translate(glm::mat4(1.0f), pos);
 		model = glm::scale(this->model, glm::vec3(radius*2.0f));
 		shader->setMat4("model", model);
@@ -98,26 +136,43 @@ bool doesCubeIntersectSphere(glm::vec3 C1, glm::vec3 C2, glm::vec3 S, float R) {
 }
 
 struct NPC {
-	float Size;
+	bool visible = true;
+	float radius;
 	glm::vec3 pos;
 	glm::vec3 dir;
-	i32 random_dir_c = 0;
+	i32 random_dir_c = 1000;
 	
-	NPC (f32 size) : Size(size) {
+	NPC (f32 size) : radius(size) {
+		std::cout << size << "\n";
 		pos.x = rand()%30;
 		pos.z = rand()%30;
-		pos.y = 1;
+		pos.y = 2;
+		dir.y = 0;
+		dir.x = (rand() % int((float)RAND_MAX*0.05f))/(float)RAND_MAX ;
+		dir.z = (rand() % int((float)RAND_MAX*0.06f))/(float)RAND_MAX ; 
 	}
 	void randomize_dir() {
-		if(50 <= random_dir_c) {
-			dir.x = 0;
-			dir.y = (rand() % RAND_MAX*0.05f)/(float)RAND_MAX ;
-			dir.z = (rand() % RAND_MAX*0.06f)/(float)RAND_MAX ; 
+		if(1000 <= random_dir_c) {
+			dir.y = 0;
+			dir.x = (rand() % int((float)RAND_MAX*0.05f))/(float)RAND_MAX ;
+			dir.z = (rand() % int((float)RAND_MAX*0.06f))/(float)RAND_MAX ; 
+			std::cout << "updated\n";
 		}  else random_dir_c = 0;
 	}
+	void update_pos() {
+		if(!(0 <= pos.x + dir.x && pos.x + dir.x < 30)) {
+			dir.x *= -1;
+		}
+		if(!(0 <= pos.z + dir.z && pos.z + dir.z < 30)) {
+			dir.z *= -1;
+		}
+		pos += dir;
+		random_dir_c ++;
+
+	}
 	void Draw(Shader* shader, Model* ball) {
-		glm::mat4 model = glm::scale(glm::mat4(1.0f), glm::vec3(Size*2.0f));
-		model = glm::translate(model, pos);
+		glm::mat4 model = glm::translate(glm::mat4(1.0f), pos);
+		model = glm::scale(model, glm::vec3(radius));
 		shader->setMat4("model", model);
 		ball->Draw(shader);
 	}
@@ -130,17 +185,17 @@ i32 main() {
 	glfwSetCursorPosCallback(window, mouse_callback);
 	glfwSetScrollCallback(window, scroll_callback);
 
-
 	cam = new Cam();	
 	
-	Files* files = new Files("bin", "resources/textures", "resources/objects");
+	// modificar valores de acuerdo a donde los tenga guardados
+	Files* files = new Files("", "resources/textures", "resources/objects");
 	Shader* shader = new Shader(files, "shader.vert", "shader.frag");
 	Shader* ball_shader = new Shader(files, "Ball.vert", "Ball.frag");
 
-	Ball ball("Balltexture.jpg", ball_shader);
+	u32 balltex = ball_shader->loadTexture("Balltexture.jpg");
+
+	Ball ball("rubik.jpg", ball_shader);
 	Model* ballx = new Model(files, "Ball/Ballmodel.obj");
-
-
 
 	glm::vec3 lightPos	 = glm::vec3(1.0f);
 	glm::vec3 lightColor	 = glm::vec3(0.21f, 0.62f, 0.32f);
@@ -161,7 +216,6 @@ i32 main() {
 	for (u32 i = 0; i < ps; ++i) {
 		players.push_back(NPC(0.05 + rand() % int(RAND_MAX * 0.95)/(float)RAND_MAX));
 	}
-
 
 	u32 cubeVao, lampVao, vbo, ebo;
 	glGenVertexArrays(1, &cubeVao);
@@ -197,28 +251,23 @@ i32 main() {
 
 	glEnable(GL_DEPTH_TEST);
 
-	shader->loadTexture("container2.png", "xyzmat.diffuse");					 // tex0
-	shader->loadTexture("container2_specular.png", "xyzmat.specular"); // tex1
+	shader->loadTexture("container2.png", "xyzmat.diffuse");	
+	shader->loadTexture("container2_specular.png", "xyzmat.specular"); 
 
 	shader->activeTexture(0);
 	shader->activeTexture(1);
 
-
 	cam->pos = {-8.66733, 11.5225, 9.03402};
 	cam->lookat = {0.703716, -0.710353, 0.0135148};
-
 	
-	ball.pos.y = 3;
-	ball.pos = {9, 9, 6.03402};
-	f32 dy = -0.2;
+	ball.pos = {rand() % 30, 0, rand()%30};
+	ball.radius = .5f;
+
 	while (!glfwWindowShouldClose(window)) {
 		f32 currentFrame = glfwGetTime();
 		deltaTime = currentFrame - lastFrame;
 		lastFrame = currentFrame;
 	
-		if(abs(ball.pos.y + dy) >= 10) dy *= -1;
-		ball.pos.y += dy;
-			
 		processInput(window);
 		glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -231,8 +280,8 @@ i32 main() {
 		lightPos.x = 2.0f*(cos(currentFrame) - sin(currentFrame));
 		lightPos.z = 2.0f*(cos(currentFrame) + sin(currentFrame));
 
-
-
+		ball.dx = dx * 0.03;
+		ball.dz = dz * 0.03;
 		shader->setVec3("xyz", lightPos);
 		shader->setVec3("xyzColor", lightColor);
 		shader->setVec3("xyzView", cam->pos);
@@ -250,29 +299,33 @@ i32 main() {
 			shader->setMat4("model", model);
 			glDrawElements(GL_TRIANGLES, cubex->getISize(), GL_UNSIGNED_INT, 0);
 
-			
-			bool v = doesCubeIntersectSphere(
-				{block.pos.x - 0.5f, block.pos.y-0.5f, block.pos.z-0.5f},
-				{block.pos.x + 0.5f, block.pos.y+0.5f, block.pos.z+0.5f},
-				ball.pos, ball.radius);
-			if(v && block.visible) {
-				dy  *= -1;
-				block.visible = false;
-			}
 		} 
 
+		ball.update_pos();
 			
 		ball.Draw(ball_shader, ballx);
 
-
+		glBindTexture(GL_TEXTURE_2D, balltex);
 		for(NPC& n : players) {
+			if(!n.visible) continue;
+			n.pos.y = 0.5f + n.radius;
+			n.update_pos();
 			n.Draw(ball_shader, ballx);
-		}
+			bool intersects = pow((n.pos.x - ball.pos.x),2) + pow((n.pos.z - ball.pos.z),2) < pow(n.radius*2,2);
+			if(intersects) {
+				std::cout << "Player: " << ball.radius << " NPC: " << n.radius << "\n";
+				if(n.radius <= ball.radius) {
+					n.visible = false;
+					ball.radius *= 1.0 + (n.radius *0.5f);
+				}
 
+			}
+		}
 
 		glfwSwapBuffers(window);
 		glfwPollEvents();
 	}
+
 	delete cam;
 	delete shader;
 	delete files;

@@ -54,20 +54,14 @@ struct Block {
 		: pos(_pos), visible(_visible) {}
 };
 
-struct Platform {
-	glm::vec3 pos = {-3.26733, 0.5225, 9.03402};
-	glm::vec3 scale = {0.6f, 1.0f, 2.0f};
-};
 
 struct Ball {
-	Model* ball;
 	u32 tex;
 	f32 radius;
 	glm::vec3 pos;
 	glm::mat4 model;
 
-	Ball(Files* files, const std::string& texture, Shader*& shader){
-		ball = new Model(files, "Ball/Ballmodel.obj");
+	Ball(const std::string& texture, Shader*& shader){
 		tex = shader->loadTexture(texture);
 		radius = 0.2f;
 		pos = {0,0,0};
@@ -76,9 +70,8 @@ struct Ball {
 
 	}
 	~Ball() {
-		delete ball;
 	}
-	void Draw(Shader* shader) {
+	void Draw(Shader* shader, Model* ball) {
 		model = glm::translate(glm::mat4(1.0f), pos);
 		model = glm::scale(this->model, glm::vec3(radius*2.0f));
 		shader->setMat4("model", model);
@@ -104,11 +97,39 @@ bool doesCubeIntersectSphere(glm::vec3 C1, glm::vec3 C2, glm::vec3 S, float R) {
     return dist_pow > 0;
 }
 
+struct NPC {
+	float Size;
+	glm::vec3 pos;
+	glm::vec3 dir;
+	i32 random_dir_c = 0;
+	
+	NPC (f32 size) : Size(size) {
+		pos.x = rand()%30;
+		pos.z = rand()%30;
+		pos.y = 1;
+	}
+	void randomize_dir() {
+		if(50 <= random_dir_c) {
+			dir.x = 0;
+			dir.y = (rand() % RAND_MAX*0.05f)/(float)RAND_MAX ;
+			dir.z = (rand() % RAND_MAX*0.06f)/(float)RAND_MAX ; 
+		}  else random_dir_c = 0;
+	}
+	void Draw(Shader* shader, Model* ball) {
+		glm::mat4 model = glm::scale(glm::mat4(1.0f), glm::vec3(Size*2.0f));
+		model = glm::translate(model, pos);
+		shader->setMat4("model", model);
+		ball->Draw(shader);
+	}
+
+};
+
 i32 main() {
 	GLFWwindow* window = glutilInit(3, 3, SCR_WIDTH, SCR_HEIGHT, "Cubito");
 	glfwSetKeyCallback(window, key_callback);
 	glfwSetCursorPosCallback(window, mouse_callback);
 	glfwSetScrollCallback(window, scroll_callback);
+
 
 	cam = new Cam();	
 	
@@ -116,7 +137,10 @@ i32 main() {
 	Shader* shader = new Shader(files, "shader.vert", "shader.frag");
 	Shader* ball_shader = new Shader(files, "Ball.vert", "Ball.frag");
 
-	Ball ball(files, "Balltexture.jpg", ball_shader);
+	Ball ball("Balltexture.jpg", ball_shader);
+	Model* ballx = new Model(files, "Ball/Ballmodel.obj");
+
+
 
 	glm::vec3 lightPos	 = glm::vec3(1.0f);
 	glm::vec3 lightColor	 = glm::vec3(0.21f, 0.62f, 0.32f);
@@ -124,13 +148,20 @@ i32 main() {
 	glEnable(GL_DEPTH_TEST);
 
 	Cube* cubex = new Cube();
-	u32 size[2] = {10, 20};
+	u32 size[2] = {30, 30};
 	std::vector<Block> positions;
 	for (u32 i = 0; i < size[0]; ++i) {
 		for (u32 j = 0; j < size[1]; ++j) {
-			positions.push_back(Block({i*1.0f, 0.0f, j*1.0f}, rand()/(float)RAND_MAX < 0.7));
+			positions.push_back(Block({i*1.0f, 0.0f, j*1.0f}, true));
 		}
 	}
+
+	std::vector<NPC> players;
+	u32 ps = 10;
+	for (u32 i = 0; i < ps; ++i) {
+		players.push_back(NPC(0.05 + rand() % int(RAND_MAX * 0.95)/(float)RAND_MAX));
+	}
+
 
 	u32 cubeVao, lampVao, vbo, ebo;
 	glGenVertexArrays(1, &cubeVao);
@@ -176,7 +207,6 @@ i32 main() {
 	cam->pos = {-8.66733, 11.5225, 9.03402};
 	cam->lookat = {0.703716, -0.710353, 0.0135148};
 
-	Platform platform;
 	
 	ball.pos.y = 3;
 	ball.pos = {9, 9, 6.03402};
@@ -220,8 +250,6 @@ i32 main() {
 			shader->setMat4("model", model);
 			glDrawElements(GL_TRIANGLES, cubex->getISize(), GL_UNSIGNED_INT, 0);
 
-
-
 			
 			bool v = doesCubeIntersectSphere(
 				{block.pos.x - 0.5f, block.pos.y-0.5f, block.pos.z-0.5f},
@@ -231,17 +259,15 @@ i32 main() {
 				dy  *= -1;
 				block.visible = false;
 			}
-		} {
-			//Platform
-			glm::mat4 model = glm::mat4(1.0f);
-			model = glm::translate(model, platform.pos);
-			model = glm::scale(model, platform.scale);
-			shader->setMat4("model", model);
-			glDrawElements(GL_TRIANGLES, cubex->getISize(), GL_UNSIGNED_INT, 0);
-		}
-		
-		ball.Draw(ball_shader);
+		} 
 
+			
+		ball.Draw(ball_shader, ballx);
+
+
+		for(NPC& n : players) {
+			n.Draw(ball_shader, ballx);
+		}
 
 
 		glfwSwapBuffers(window);
@@ -254,6 +280,3 @@ i32 main() {
 
 	return 0;
 }
-
-/* vim: set tabstop=2:softtabstop=2:shiftwidth=2:noexpandtab */
-

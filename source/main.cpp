@@ -33,7 +33,7 @@ void processInput(GLFWwindow* window) {
 	if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
 		cam->processKeyboard(RIGHT, deltaTime);
 	}
-	//kbd
+
 	if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS) {
 		dx = -1;
 	}
@@ -46,18 +46,6 @@ void processInput(GLFWwindow* window) {
 	if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS) {
 		dz = -1;
 	}
-	//if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_RELEASE) {
-	//	dx = -0;
-	//}
-	//if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_RELEASE) {
-	//	dx = 0;
-	//}
-	//if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_RELEASE) {
-	//	dz = 0;
-	//}
-	//if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_RELEASE) {
-	//	dz = -0;
-	//}
 }
 void key_callback(GLFWwindow*, int key, int, int act, int) {
 	wireframe ^= key == GLFW_KEY_E && act == GLFW_PRESS;
@@ -91,7 +79,7 @@ struct Ball {
 	f32 dx = 0; 
 	f32 dz = 0; 
 
-	Ball(const std::string& texture, Shader*& shader){
+	Ball(std::string texture, Shader*& shader){
 		tex = shader->loadTexture(texture);
 		radius = 0.2f;
 		pos = {0,0,0};
@@ -118,10 +106,6 @@ struct Ball {
 	}
 
 };
-
-void show_vec3(const glm::vec3& v, const char* prompt) {
-	std::cout << prompt << ": " << v.x << ", " << v.y << ", " << v.z << "\n";
-}
 
 bool doesCubeIntersectSphere(glm::vec3 C1, glm::vec3 C2, glm::vec3 S, float R) {
 	float dist_pow = R * R;
@@ -313,7 +297,6 @@ i32 main() {
 			n.Draw(ball_shader, ballx);
 			bool intersects = pow((n.pos.x - ball.pos.x),2) + pow((n.pos.z - ball.pos.z),2) < pow(n.radius*2,2);
 			if(intersects) {
-				std::cout << "Player: " << ball.radius << " NPC: " << n.radius << "\n";
 				if(n.radius <= ball.radius) {
 					n.visible = false;
 					ball.radius *= 1.0 + (n.radius *0.5f);
